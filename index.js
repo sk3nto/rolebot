@@ -7,13 +7,17 @@ const {
     EmbedBuilder
 } = require('discord.js');
 
-const http = require('http');
+const express = require('express');
+const app = express();
 
-// ===================== RENDER FIX =====================
-http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end('Bot is alive');
-}).listen(process.env.PORT || 3000);
+// ===================== RENDER FIX (Web Service) =====================
+app.get('/', (req, res) => {
+    res.send('Bot is alive');
+});
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log('Web server started');
+});
 
 // ===================== CONFIG =====================
 const TOKEN = process.env.TOKEN;
@@ -46,9 +50,7 @@ client.on('messageCreate', async message => {
 
         const embed = new EmbedBuilder()
             .setTitle('Система запроса роли')
-            .setDescription(
-                'Для получения игровой роли нажмите кнопку ниже.'
-            )
+            .setDescription('Нажмите кнопку ниже для подачи заявки')
             .setColor('#2f3136');
 
         const button = new ButtonBuilder()
@@ -62,8 +64,6 @@ client.on('messageCreate', async message => {
             embeds: [embed],
             components: [row]
         });
-
-        await message.reply('✅ Панель создана');
     }
 });
 
@@ -74,16 +74,12 @@ client.on('interactionCreate', async interaction => {
 
     try {
 
-        // ⚡ СРАЗУ “бронируем” ответ (ВАЖНО)
-        await interaction.deferReply({ ephemeral: true });
-
         // ===================== REQUEST =====================
         if (interaction.customId === 'role_request') {
 
             const adminChannel = await client.channels.fetch(adminChannelId);
 
             const row = new ActionRowBuilder().addComponents(
-
                 new ButtonBuilder()
                     .setCustomId(`approve_${interaction.user.id}`)
                     .setLabel('Одобрить')
@@ -100,11 +96,16 @@ client.on('interactionCreate', async interaction => {
                 components: [row]
             });
 
-            return interaction.editReply('✅ Заявка отправлена');
+            return interaction.reply({
+                content: '✅ Заявка отправлена',
+                flags: 64
+            });
         }
 
         // ===================== APPROVE =====================
         if (interaction.customId.startsWith('approve_')) {
+
+            await interaction.deferUpdate(); // ключ к стабильности
 
             const userId = interaction.customId.split('_')[1];
 
@@ -119,11 +120,13 @@ client.on('interactionCreate', async interaction => {
                 components: []
             });
 
-            return interaction.editReply('✅ Роль выдана');
+            return;
         }
 
         // ===================== DENY =====================
         if (interaction.customId.startsWith('deny_')) {
+
+            await interaction.deferUpdate();
 
             const userId = interaction.customId.split('_')[1];
 
@@ -132,18 +135,11 @@ client.on('interactionCreate', async interaction => {
                 components: []
             });
 
-            return interaction.editReply('❌ Отклонено');
+            return;
         }
 
     } catch (err) {
-        console.log(err);
-
-        if (!interaction.replied && !interaction.deferred) {
-            return interaction.reply({
-                content: '❌ Ошибка взаимодействия',
-                ephemeral: true
-            });
-        }
+        console.log('INTERACTION ERROR:', err);
     }
 });
 
