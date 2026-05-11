@@ -1,3 +1,5 @@
+const adminChannelId = '1503272827963572256';
+const roleId = '1503082144044548223';
 const {
     Client,
     GatewayIntentBits,
