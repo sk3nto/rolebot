@@ -74,6 +74,9 @@ client.on('interactionCreate', async interaction => {
 
     try {
 
+        // ⚡ СРАЗУ “бронируем” ответ (ВАЖНО)
+        await interaction.deferReply({ ephemeral: true });
+
         // ===================== REQUEST =====================
         if (interaction.customId === 'role_request') {
 
@@ -93,15 +96,11 @@ client.on('interactionCreate', async interaction => {
             );
 
             await adminChannel.send({
-                content:
-                    `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
+                content: `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
                 components: [row]
             });
 
-            return interaction.reply({
-                content: '✅ Заявка отправлена',
-                ephemeral: true
-            });
+            return interaction.editReply('✅ Заявка отправлена');
         }
 
         // ===================== APPROVE =====================
@@ -111,28 +110,16 @@ client.on('interactionCreate', async interaction => {
 
             const member = await interaction.guild.members.fetch(userId);
 
-            // Проверка роли
-            if (member.roles.cache.has(roleId)) {
-
-                return interaction.reply({
-                    content: '⚠️ У пользователя уже есть роль',
-                    ephemeral: true
-                });
+            if (!member.roles.cache.has(roleId)) {
+                await member.roles.add(roleId);
             }
 
-            // Выдача роли
-            await member.roles.add(roleId);
-
-            // Меняем сообщение
             await interaction.message.edit({
                 content: `🟢 Одобрено: <@${userId}>`,
                 components: []
             });
 
-            return interaction.reply({
-                content: '✅ Роль выдана',
-                ephemeral: true
-            });
+            return interaction.editReply('✅ Роль выдана');
         }
 
         // ===================== DENY =====================
@@ -145,18 +132,13 @@ client.on('interactionCreate', async interaction => {
                 components: []
             });
 
-            return interaction.reply({
-                content: '❌ Заявка отклонена',
-                ephemeral: true
-            });
+            return interaction.editReply('❌ Отклонено');
         }
 
     } catch (err) {
+        console.log(err);
 
-        console.log('ERROR:', err);
-
-        if (!interaction.replied) {
-
+        if (!interaction.replied && !interaction.deferred) {
             return interaction.reply({
                 content: '❌ Ошибка взаимодействия',
                 ephemeral: true
