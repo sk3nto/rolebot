@@ -8,21 +8,31 @@ const {
 } = require('discord.js');
 
 const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
 });
+
+// КАНАЛ ГДЕ СТОИТ КНОПКА
+const panelChannelId = '1503072689357717516';
+
+// КАНАЛ КУДА ПРИХОДЯТ ЗАЯВКИ (АДМИНЫ)
+const adminChannelId = '1503272827963572256'; // <-- ВСТАВЬ СЮДА
 
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 
-    const channel = await client.channels.fetch('1503072689357717516');
+    const channel = await client.channels.fetch(panelChannelId);
 
     const embed = new EmbedBuilder()
         .setTitle('Система запроса роли')
         .setDescription(
-            'Для получения игровой роли заполните форму, нажав на кнопку ниже.\n\nЗаявка будет рассмотрена администрацией в кратчайшие сроки.\n\nby c. edison'
+            'Для получения игровой роли нажмите кнопку ниже.\n\nЗаявка будет рассмотрена администрацией.'
         )
         .setColor('#2f3136')
-        .setThumbnail('https://media.discordapp.net/attachments/1503072689357717516/1503259813914869810/SFPD-GTASA-logo.png?ex=6a02b34c&is=6a0161cc&hm=758146485d5b19e452ff6e0536b29ee01851856375434eddf0be7cf584321a6f&=&format=webp&quality=lossless');
+        .setThumbnail('https://media.discordapp.net/attachments/1503072689357717516/1503259813914869810/SFPD-GTASA-logo.png');
 
     const button = new ButtonBuilder()
         .setCustomId('role_request')
@@ -41,9 +51,18 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId === 'role_request') {
+
+        // 1. Ответ пользователю (скрыто)
         await interaction.reply({
-            content: 'Ваша заявка на роль отправлена.',
+            content: '✅ Ваша заявка отправлена на рассмотрение.',
             ephemeral: true
+        });
+
+        // 2. Отправка в админ-канал
+        const adminChannel = await client.channels.fetch(adminChannelId);
+
+        adminChannel.send({
+            content: `📩 Новая заявка на роль от **${interaction.user.tag}** (ID: ${interaction.user.id})`
         });
     }
 });
