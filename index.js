@@ -10,34 +10,30 @@ const {
 const http = require('http');
 
 // =====================
-// Render FIX (без express)
+// Render FIX (порт)
 // =====================
-const server = http.createServer((req, res) => {
-    res.writeHead(200);
+http.createServer((req, res) => {
     res.end('Bot is alive');
-});
-
-server.listen(process.env.PORT || 3000, () => {
-    console.log('Web server started');
-});
+}).listen(process.env.PORT || 3000);
 
 // =====================
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMembers
     ]
 });
 
-// ID
+// ===================== ID =====================
 const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
 // =====================
+
+// 👉 чтобы НЕ спамил панель
+let panelSent = false;
 
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
@@ -45,35 +41,40 @@ client.once('ready', async () => {
     try {
         const channel = await client.channels.fetch(panelChannelId);
 
-        const embed = new EmbedBuilder()
-            .setTitle('Система запроса роли')
-            .setDescription('Нажмите кнопку для получения роли')
-            .setColor('#2f3136');
+        if (!panelSent) {
 
-        const button = new ButtonBuilder()
-            .setCustomId('role_request')
-            .setLabel('Запросить роль')
-            .setStyle(ButtonStyle.Primary);
+            const embed = new EmbedBuilder()
+                .setTitle('Система запроса роли')
+                .setDescription('Нажмите кнопку ниже для получения роли')
+                .setColor('#2f3136');
 
-        const row = new ActionRowBuilder().addComponents(button);
+            const button = new ButtonBuilder()
+                .setCustomId('role_request')
+                .setLabel('Запросить роль')
+                .setStyle(ButtonStyle.Primary);
 
-        await channel.send({
-            embeds: [embed],
-            components: [row]
-        });
+            const row = new ActionRowBuilder().addComponents(button);
+
+            await channel.send({
+                embeds: [embed],
+                components: [row]
+            });
+
+            panelSent = true; // 👉 больше не отправит
+        }
 
     } catch (err) {
         console.log('Ошибка панели:', err);
     }
 });
 
-// =====================
+// ===================== КНОПКИ =====================
 
 client.on('interactionCreate', async interaction => {
 
     if (!interaction.isButton()) return;
 
-    // ЗАПРОС РОЛИ
+    // 👉 ЗАПРОС РОЛИ
     if (interaction.customId === 'role_request') {
 
         const adminChannel = await client.channels.fetch(adminChannelId);
@@ -101,30 +102,38 @@ client.on('interactionCreate', async interaction => {
         });
     }
 
-    // ОДОБРЕНИЕ
+    // ===================== ОДОБРИТЬ =====================
+
     if (interaction.customId.startsWith('approve_')) {
 
         const userId = interaction.customId.split('_')[1];
 
-        const member = await interaction.guild.members.fetch(userId);
+        try {
+            const member = await interaction.guild.members.fetch(userId);
+            await member.roles.add(roleId);
 
-        await member.roles.add(roleId);
+            await interaction.reply({
+                content: `🟢 Одобрено: <@${userId}>`
+            });
 
-        await interaction.update({
-            content: `🟢 Одобрено: <@${userId}>`,
-            components: []
-        });
+            await interaction.message.edit({ components: [] });
+
+        } catch (err) {
+            console.log(err);
+        }
     }
 
-    // ОТКАЗ
+    // ===================== ОТКАЗ =====================
+
     if (interaction.customId.startsWith('deny_')) {
 
         const userId = interaction.customId.split('_')[1];
 
-        await interaction.update({
-            content: `🔴 Отклонено: <@${userId}>`,
-            components: []
+        await interaction.reply({
+            content: `🔴 Отклонено: <@${userId}>`
         });
+
+        await interaction.message.edit({ components: [] });
     }
 });
 
