@@ -15,41 +15,34 @@ http.createServer((req, res) => {
     res.end('Bot is alive');
 }).listen(process.env.PORT || 3000);
 
-// ===================== BOT =====================
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers
-    ]
-});
-
 // ===================== CONFIG =====================
+const TOKEN = process.env.TOKEN;
+
 const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
+// ===================== CLIENT =====================
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
+});
+
 // ===================== READY =====================
-client.once('ready', async () => {
-
+client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag}`);
+});
 
-    try {
+// ===================== PANEL COMMAND =====================
+client.on('messageCreate', async message => {
 
-        const channel = await client.channels.fetch(panelChannelId);
+    if (message.author.bot) return;
 
-        // Проверка чтобы панель не спамилась
-        const messages = await channel.messages.fetch({ limit: 10 });
-
-        const existingPanel = messages.find(
-            msg =>
-                msg.author.id === client.user.id &&
-                msg.components.length > 0
-        );
-
-        if (existingPanel) {
-            console.log('Панель уже существует');
-            return;
-        }
+    if (message.content === '!panel') {
 
         const embed = new EmbedBuilder()
             .setTitle('Система запроса роли')
@@ -65,15 +58,12 @@ client.once('ready', async () => {
 
         const row = new ActionRowBuilder().addComponents(button);
 
-        await channel.send({
+        await message.channel.send({
             embeds: [embed],
             components: [row]
         });
 
-        console.log('Панель отправлена');
-
-    } catch (err) {
-        console.log('READY ERROR:', err);
+        await message.reply('✅ Панель создана');
     }
 });
 
@@ -121,7 +111,7 @@ client.on('interactionCreate', async interaction => {
 
             const member = await interaction.guild.members.fetch(userId);
 
-            // Если роль уже есть
+            // Проверка роли
             if (member.roles.cache.has(roleId)) {
 
                 return interaction.reply({
@@ -133,7 +123,7 @@ client.on('interactionCreate', async interaction => {
             // Выдача роли
             await member.roles.add(roleId);
 
-            // Обновляем сообщение
+            // Меняем сообщение
             await interaction.message.edit({
                 content: `🟢 Одобрено: <@${userId}>`,
                 components: []
@@ -163,7 +153,7 @@ client.on('interactionCreate', async interaction => {
 
     } catch (err) {
 
-        console.log('INTERACTION ERROR:', err);
+        console.log('ERROR:', err);
 
         if (!interaction.replied) {
 
@@ -176,4 +166,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 // ===================== LOGIN =====================
-client.login(process.env.TOKEN);
+client.login(TOKEN);
