@@ -28,18 +28,13 @@ const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
-// 👉 защита от спама (важно)
-let panelMessageSent = false;
-
 // ===================== READY =====================
+
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 
     try {
         const channel = await client.channels.fetch(panelChannelId);
-
-        // 👉 НЕ СПАМИМ
-        if (panelMessageSent) return;
 
         const embed = new EmbedBuilder()
             .setTitle('Система запроса роли')
@@ -58,8 +53,6 @@ client.once('ready', async () => {
             components: [row]
         });
 
-        panelMessageSent = true;
-
     } catch (err) {
         console.log('Ошибка панели:', err);
     }
@@ -71,42 +64,41 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isButton()) return;
 
-    // ===================== REQUEST =====================
-    if (interaction.customId === 'role_request') {
+    try {
 
-        const adminChannel = await client.channels.fetch(adminChannelId);
+        // ===================== REQUEST =====================
+        if (interaction.customId === 'role_request') {
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`approve_${interaction.user.id}`)
-                .setLabel('Одобрить')
-                .setStyle(ButtonStyle.Success),
+            await interaction.deferReply({ ephemeral: true });
 
-            new ButtonBuilder()
-                .setCustomId(`deny_${interaction.user.id}`)
-                .setLabel('Отказать')
-                .setStyle(ButtonStyle.Danger)
-        );
+            const adminChannel = await client.channels.fetch(adminChannelId);
 
-        await adminChannel.send({
-            content: `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
-            components: [row]
-        });
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`approve_${interaction.user.id}`)
+                    .setLabel('Одобрить')
+                    .setStyle(ButtonStyle.Success),
 
-        return interaction.reply({
-            content: '✅ Заявка отправлена',
-            ephemeral: true
-        });
-    }
+                new ButtonBuilder()
+                    .setCustomId(`deny_${interaction.user.id}`)
+                    .setLabel('Отказать')
+                    .setStyle(ButtonStyle.Danger)
+            );
 
-    // ===================== APPROVE =====================
-    if (interaction.customId.startsWith('approve_')) {
+            await adminChannel.send({
+                content: `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
+                components: [row]
+            });
 
-        await interaction.deferReply();
+            return interaction.editReply('✅ Заявка отправлена');
+        }
 
-        const userId = interaction.customId.split('_')[1];
+        // ===================== APPROVE =====================
+        if (interaction.customId.startsWith('approve_')) {
 
-        try {
+            await interaction.deferReply();
+
+            const userId = interaction.customId.split('_')[1];
             const member = await interaction.guild.members.fetch(userId);
 
             await member.roles.add(roleId);
@@ -114,24 +106,32 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply(`🟢 Одобрено: <@${userId}>`);
 
             await interaction.message.edit({ components: [] });
+        }
 
-        } catch (err) {
-            console.log(err);
-            await interaction.editReply('❌ Ошибка выдачи роли (права или иерархия)');
+        // ===================== DENY =====================
+        if (interaction.customId.startsWith('deny_')) {
+
+            await interaction.deferReply();
+
+            const userId = interaction.customId.split('_')[1];
+
+            await interaction.editReply(`🔴 Отклонено: <@${userId}>`);
+
+            await interaction.message.edit({ components: [] });
+        }
+
+    } catch (err) {
+        console.log('ERROR:', err);
+
+        if (!interaction.replied) {
+            await interaction.reply({
+                content: '❌ Ошибка кнопки',
+                ephemeral: true
+            });
         }
     }
-
-    // ===================== DENY =====================
-    if (interaction.customId.startsWith('deny_')) {
-
-        const userId = interaction.customId.split('_')[1];
-
-        await interaction.reply({
-            content: `🔴 Отклонено: <@${userId}>`
-        });
-
-        await interaction.message.edit({ components: [] });
-    }
 });
+
+// ===================== LOGIN =====================
 
 client.login(process.env.TOKEN);
