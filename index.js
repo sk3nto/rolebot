@@ -9,7 +9,7 @@ const {
 
 const http = require('http');
 
-// ===================== RENDER FIX =====================
+// ===================== WEB SERVER =====================
 http.createServer((req, res) => {
     res.writeHead(200);
     res.end('Bot is alive');
@@ -36,7 +36,7 @@ client.once('clientReady', () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 });
 
-// ===================== PANEL COMMAND =====================
+// ===================== CREATE PANEL =====================
 client.on('messageCreate', async message => {
 
     if (message.author.bot) return;
@@ -110,19 +110,9 @@ client.on('interactionCreate', async interaction => {
 
             const member = await interaction.guild.members.fetch(userId);
 
-            // Если роль уже есть
-            if (member.roles.cache.has(roleId)) {
-
-                await interaction.message.edit({
-                    content: `⚠️ У пользователя уже есть роль`,
-                    components: []
-                });
-
-                return;
+            if (!member.roles.cache.has(roleId)) {
+                await member.roles.add(roleId);
             }
-
-            // Выдача роли
-            await member.roles.add(roleId);
 
             await interaction.message.edit({
                 content: `🟢 Одобрено: <@${userId}>`,
@@ -151,12 +141,6 @@ client.on('interactionCreate', async interaction => {
 
         console.log('INTERACTION ERROR:', err);
 
-        try {
-            await interaction.message.edit({
-                content: '❌ Ошибка при обработке заявки',
-                components: []
-            });
-        } catch {}
     }
 });
 
