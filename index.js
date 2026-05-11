@@ -62,7 +62,7 @@ client.on('interactionCreate', async interaction => {
         const adminChannel = await client.channels.fetch(adminChannelId);
 
         adminChannel.send({
-            content: `📩 Новая заявка на роль от **${interaction.user.tag}** (ID: ${interaction.user.id})`
+            content: `📩 Новая заявка на роль от **${interaction.member.displayName}** (ID: ${interaction.user.id})`
         });
     }
 });
