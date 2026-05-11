@@ -23,43 +23,48 @@ const client = new Client({
     ]
 });
 
-// ===================== ID =====================
+// ===================== CONFIG =====================
 const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
-// ===================== READY =====================
+// защита от спама панели
+let panelSent = false;
 
+// ===================== READY =====================
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 
     try {
         const channel = await client.channels.fetch(panelChannelId);
 
-        const embed = new EmbedBuilder()
-            .setTitle('Система запроса роли')
-            .setDescription('Нажмите кнопку для получения роли')
-            .setColor('#2f3136');
+        if (!panelSent) {
+            const embed = new EmbedBuilder()
+                .setTitle('Система запроса роли')
+                .setDescription('Нажмите кнопку для отправки заявки')
+                .setColor('#2f3136');
 
-        const button = new ButtonBuilder()
-            .setCustomId('role_request')
-            .setLabel('Запросить роль')
-            .setStyle(ButtonStyle.Primary);
+            const button = new ButtonBuilder()
+                .setCustomId('role_request')
+                .setLabel('Запросить роль')
+                .setStyle(ButtonStyle.Primary);
 
-        const row = new ActionRowBuilder().addComponents(button);
+            const row = new ActionRowBuilder().addComponents(button);
 
-        await channel.send({
-            embeds: [embed],
-            components: [row]
-        });
+            await channel.send({
+                embeds: [embed],
+                components: [row]
+            });
+
+            panelSent = true;
+        }
 
     } catch (err) {
-        console.log('Ошибка панели:', err);
+        console.log('READY ERROR:', err);
     }
 });
 
-// ===================== BUTTONS =====================
-
+// ===================== INTERACTIONS =====================
 client.on('interactionCreate', async interaction => {
 
     if (!interaction.isButton()) return;
@@ -96,24 +101,34 @@ client.on('interactionCreate', async interaction => {
         // ===================== APPROVE =====================
         if (interaction.customId.startsWith('approve_')) {
 
+            const userId = interaction.customId.split('_')[1];
+
             await interaction.deferReply();
 
-            const userId = interaction.customId.split('_')[1];
-            const member = await interaction.guild.members.fetch(userId);
+            try {
+                const member = await interaction.guild.members.fetch(userId);
 
-            await member.roles.add(roleId);
+                await member.roles.add(roleId);
 
-            await interaction.editReply(`🟢 Одобрено: <@${userId}>`);
+                await interaction.editReply(`🟢 Одобрено: <@${userId}> (роль выдана)`);
 
-            await interaction.message.edit({ components: [] });
+                await interaction.message.edit({ components: [] });
+
+            } catch (err) {
+                console.log('ROLE ERROR:', err);
+
+                await interaction.editReply(
+                    '❌ Одобрено, но роль НЕ выдана (проверь права или иерархию ролей)'
+                );
+            }
         }
 
         // ===================== DENY =====================
         if (interaction.customId.startsWith('deny_')) {
 
-            await interaction.deferReply();
-
             const userId = interaction.customId.split('_')[1];
+
+            await interaction.deferReply();
 
             await interaction.editReply(`🔴 Отклонено: <@${userId}>`);
 
@@ -121,11 +136,11 @@ client.on('interactionCreate', async interaction => {
         }
 
     } catch (err) {
-        console.log('ERROR:', err);
+        console.log('INTERACTION ERROR:', err);
 
         if (!interaction.replied) {
             await interaction.reply({
-                content: '❌ Ошибка кнопки',
+                content: '❌ Ошибка обработки кнопки',
                 ephemeral: true
             });
         }
@@ -133,5 +148,4 @@ client.on('interactionCreate', async interaction => {
 });
 
 // ===================== LOGIN =====================
-
 client.login(process.env.TOKEN);
