@@ -49,4 +49,3 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login('client.login(process.env.MTUwMzI1NjY5Mjg4Njg2Mzk4NA.GHOLYB.o01aRMM1K1XhaOlo1idlgw8C1QmGOvJiNhe7d4);');
-console.log("TOKEN:", process.env.MTUwMzI1NjY5Mjg4Njg2Mzk4NA.GHOLYB.o01aRMM1K1XhaOlo1idlgw8C1QmGOvJiNhe7d4);
