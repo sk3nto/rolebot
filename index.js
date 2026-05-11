@@ -7,22 +7,17 @@ const {
     EmbedBuilder
 } = require('discord.js');
 
-const express = require('express');
-const app = express();
+const http = require('http');
 
-// ===================== RENDER FIX (Web Service) =====================
-app.get('/', (req, res) => {
-    res.send('Bot is alive');
-});
-
-app.listen(process.env.PORT || 3000, () => {
-    console.log('Web server started');
-});
+// ===================== RENDER FIX =====================
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end('Bot is alive');
+}).listen(process.env.PORT || 3000);
 
 // ===================== CONFIG =====================
 const TOKEN = process.env.TOKEN;
 
-const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
@@ -37,7 +32,7 @@ const client = new Client({
 });
 
 // ===================== READY =====================
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 });
 
@@ -50,7 +45,9 @@ client.on('messageCreate', async message => {
 
         const embed = new EmbedBuilder()
             .setTitle('Система запроса роли')
-            .setDescription('Нажмите кнопку ниже для подачи заявки')
+            .setDescription(
+                'Для получения игровой роли нажмите кнопку ниже.'
+            )
             .setColor('#2f3136');
 
         const button = new ButtonBuilder()
@@ -80,6 +77,7 @@ client.on('interactionCreate', async interaction => {
             const adminChannel = await client.channels.fetch(adminChannelId);
 
             const row = new ActionRowBuilder().addComponents(
+
                 new ButtonBuilder()
                     .setCustomId(`approve_${interaction.user.id}`)
                     .setLabel('Одобрить')
@@ -92,7 +90,8 @@ client.on('interactionCreate', async interaction => {
             );
 
             await adminChannel.send({
-                content: `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
+                content:
+                    `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
                 components: [row]
             });
 
@@ -105,15 +104,25 @@ client.on('interactionCreate', async interaction => {
         // ===================== APPROVE =====================
         if (interaction.customId.startsWith('approve_')) {
 
-            await interaction.deferUpdate(); // ключ к стабильности
+            await interaction.deferUpdate();
 
             const userId = interaction.customId.split('_')[1];
 
             const member = await interaction.guild.members.fetch(userId);
 
-            if (!member.roles.cache.has(roleId)) {
-                await member.roles.add(roleId);
+            // Если роль уже есть
+            if (member.roles.cache.has(roleId)) {
+
+                await interaction.message.edit({
+                    content: `⚠️ У пользователя уже есть роль`,
+                    components: []
+                });
+
+                return;
             }
+
+            // Выдача роли
+            await member.roles.add(roleId);
 
             await interaction.message.edit({
                 content: `🟢 Одобрено: <@${userId}>`,
@@ -139,7 +148,15 @@ client.on('interactionCreate', async interaction => {
         }
 
     } catch (err) {
+
         console.log('INTERACTION ERROR:', err);
+
+        try {
+            await interaction.message.edit({
+                content: '❌ Ошибка при обработке заявки',
+                components: []
+            });
+        } catch {}
     }
 });
 
