@@ -9,14 +9,12 @@ const {
 
 const http = require('http');
 
-// =====================
-// Render FIX (порт)
-// =====================
+// ===================== Render FIX =====================
 http.createServer((req, res) => {
     res.end('Bot is alive');
 }).listen(process.env.PORT || 3000);
 
-// =====================
+// ===================== BOT =====================
 
 const client = new Client({
     intents: [
@@ -30,51 +28,50 @@ const panelChannelId = '1503072689357717516';
 const adminChannelId = '1503272827963572256';
 const roleId = '1503082144044548223';
 
-// =====================
+// 👉 защита от спама (важно)
+let panelMessageSent = false;
 
-// 👉 чтобы НЕ спамил панель
-let panelSent = false;
-
+// ===================== READY =====================
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 
     try {
         const channel = await client.channels.fetch(panelChannelId);
 
-        if (!panelSent) {
+        // 👉 НЕ СПАМИМ
+        if (panelMessageSent) return;
 
-            const embed = new EmbedBuilder()
-                .setTitle('Система запроса роли')
-                .setDescription('Нажмите кнопку ниже для получения роли')
-                .setColor('#2f3136');
+        const embed = new EmbedBuilder()
+            .setTitle('Система запроса роли')
+            .setDescription('Нажмите кнопку для получения роли')
+            .setColor('#2f3136');
 
-            const button = new ButtonBuilder()
-                .setCustomId('role_request')
-                .setLabel('Запросить роль')
-                .setStyle(ButtonStyle.Primary);
+        const button = new ButtonBuilder()
+            .setCustomId('role_request')
+            .setLabel('Запросить роль')
+            .setStyle(ButtonStyle.Primary);
 
-            const row = new ActionRowBuilder().addComponents(button);
+        const row = new ActionRowBuilder().addComponents(button);
 
-            await channel.send({
-                embeds: [embed],
-                components: [row]
-            });
+        await channel.send({
+            embeds: [embed],
+            components: [row]
+        });
 
-            panelSent = true; // 👉 больше не отправит
-        }
+        panelMessageSent = true;
 
     } catch (err) {
         console.log('Ошибка панели:', err);
     }
 });
 
-// ===================== КНОПКИ =====================
+// ===================== BUTTONS =====================
 
 client.on('interactionCreate', async interaction => {
 
     if (!interaction.isButton()) return;
 
-    // 👉 ЗАПРОС РОЛИ
+    // ===================== REQUEST =====================
     if (interaction.customId === 'role_request') {
 
         const adminChannel = await client.channels.fetch(adminChannelId);
@@ -102,29 +99,29 @@ client.on('interactionCreate', async interaction => {
         });
     }
 
-    // ===================== ОДОБРИТЬ =====================
-
+    // ===================== APPROVE =====================
     if (interaction.customId.startsWith('approve_')) {
+
+        await interaction.deferReply();
 
         const userId = interaction.customId.split('_')[1];
 
         try {
             const member = await interaction.guild.members.fetch(userId);
+
             await member.roles.add(roleId);
 
-            await interaction.reply({
-                content: `🟢 Одобрено: <@${userId}>`
-            });
+            await interaction.editReply(`🟢 Одобрено: <@${userId}>`);
 
             await interaction.message.edit({ components: [] });
 
         } catch (err) {
             console.log(err);
+            await interaction.editReply('❌ Ошибка выдачи роли (права или иерархия)');
         }
     }
 
-    // ===================== ОТКАЗ =====================
-
+    // ===================== DENY =====================
     if (interaction.customId.startsWith('deny_')) {
 
         const userId = interaction.customId.split('_')[1];
