@@ -1,5 +1,3 @@
-const adminChannelId = '1503272827963572256';
-const roleId = '1503082144044548223';
 const {
     Client,
     GatewayIntentBits,
@@ -12,59 +10,100 @@ const {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
 });
 
-// КАНАЛ ГДЕ СТОИТ КНОПКА
+// ID
 const panelChannelId = '1503072689357717516';
-
-// КАНАЛ КУДА ПРИХОДЯТ ЗАЯВКИ (АДМИНЫ)
-const adminChannelId = '1503272827963572256'; // <-- ВСТАВЬ СЮДА
+const adminChannelId = '1503272827963572256';
+const roleId = '1503082144044548223';
 
 client.once('ready', async () => {
     console.log(`Бот запущен как ${client.user.tag}`);
 
-    const channel = await client.channels.fetch(panelChannelId);
+    try {
+        const channel = await client.channels.fetch(panelChannelId);
 
-    const embed = new EmbedBuilder()
-        .setTitle('Система запроса роли')
-        .setDescription(
-            'Для получения игровой роли нажмите кнопку ниже.\n\nЗаявка будет рассмотрена администрацией.'
-        )
-        .setColor('#2f3136')
-        .setThumbnail('https://media.discordapp.net/attachments/1503072689357717516/1503259813914869810/SFPD-GTASA-logo.png');
+        const embed = new EmbedBuilder()
+            .setTitle('Система запроса роли')
+            .setDescription('Нажмите кнопку ниже для запроса роли')
+            .setColor('#2f3136')
+            .setThumbnail('https://media.discordapp.net/attachments/...');
 
-    const button = new ButtonBuilder()
-        .setCustomId('role_request')
-        .setLabel('Запросить роль')
-        .setStyle(ButtonStyle.Primary);
+        const button = new ButtonBuilder()
+            .setCustomId('role_request')
+            .setLabel('Запросить роль')
+            .setStyle(ButtonStyle.Primary);
 
-    const row = new ActionRowBuilder().addComponents(button);
+        const row = new ActionRowBuilder().addComponents(button);
 
-    await channel.send({
-        embeds: [embed],
-        components: [row]
-    });
+        await channel.send({
+            embeds: [embed],
+            components: [row]
+        });
+
+    } catch (err) {
+        console.log('Ошибка панели:', err);
+    }
 });
 
 client.on('interactionCreate', async interaction => {
+
     if (!interaction.isButton()) return;
 
+    // ЗАПРОС
     if (interaction.customId === 'role_request') {
 
-        // 1. Ответ пользователю (скрыто)
-        await interaction.reply({
-            content: '✅ Ваша заявка отправлена на рассмотрение.',
-            ephemeral: true
-        });
-
-        // 2. Отправка в админ-канал
         const adminChannel = await client.channels.fetch(adminChannelId);
 
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`approve_${interaction.user.id}`)
+                .setLabel('Одобрить')
+                .setStyle(ButtonStyle.Success),
+
+            new ButtonBuilder()
+                .setCustomId(`deny_${interaction.user.id}`)
+                .setLabel('Отказать')
+                .setStyle(ButtonStyle.Danger)
+        );
+
         adminChannel.send({
-            content: `📩 Новая заявка на роль от **${interaction.member.displayName}** (ID: ${interaction.user.id})`
+            content: `📩 Заявка от **${interaction.member.displayName}** (<@${interaction.user.id}>)`,
+            components: [row]
+        });
+
+        return interaction.reply({
+            content: '✅ Заявка отправлена',
+            ephemeral: true
+        });
+    }
+
+    // ОДОБРЕНИЕ
+    if (interaction.customId.startsWith('approve_')) {
+
+        const userId = interaction.customId.split('_')[1];
+        const member = await interaction.guild.members.fetch(userId);
+
+        await member.roles.add(roleId);
+
+        await interaction.update({
+            content: `🟢 Одобрено: <@${userId}>`,
+            components: []
+        });
+    }
+
+    // ОТКАЗ
+    if (interaction.customId.startsWith('deny_')) {
+
+        const userId = interaction.customId.split('_')[1];
+
+        await interaction.update({
+            content: `🔴 Отклонено: <@${userId}>`,
+            components: []
         });
     }
 });
